@@ -152,6 +152,72 @@ export default function LoginPage() {
           </button>
         </form>
 
+        {/* Demo Fast Logins Section */}
+        <div className="mt-8 pt-6 border-t border-white/10 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-cyan-400">
+              ⚡ Accesso Rapido Demo (1-Click)
+            </span>
+            <span className="text-[10px] text-slate-500 font-mono">Test Account</span>
+          </div>
+          <p className="text-[11px] text-slate-400">
+            Fai subito il login come uno dei 3 ruoli per esplorare le relative sezioni:
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+            <button
+              type="button"
+              onClick={async () => {
+                setLoading(true);
+                await fetch('/api/auth/demo-login', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ role: 'artist' }),
+                });
+                window.location.href = '/dashboard';
+              }}
+              className="py-2.5 px-3 rounded-xl bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/40 text-violet-300 font-semibold text-xs transition-all active:scale-95 flex flex-col items-center gap-0.5"
+            >
+              <span>🎸 Artista</span>
+              <span className="text-[9px] text-violet-400/80 font-normal">Luna Velata</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                setLoading(true);
+                await fetch('/api/auth/demo-login', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ role: 'venue' }),
+                });
+                window.location.href = '/dashboard';
+              }}
+              className="py-2.5 px-3 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/40 text-cyan-300 font-semibold text-xs transition-all active:scale-95 flex flex-col items-center gap-0.5"
+            >
+              <span>🏛️ Venue / Club</span>
+              <span className="text-[9px] text-cyan-400/80 font-normal">Lanificio 159</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                setLoading(true);
+                await fetch('/api/auth/demo-login', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ role: 'fan' }),
+                });
+                window.location.href = '/explore';
+              }}
+              className="py-2.5 px-3 rounded-xl bg-pink-600/20 hover:bg-pink-600/30 border border-pink-500/40 text-pink-300 font-semibold text-xs transition-all active:scale-95 flex flex-col items-center gap-0.5"
+            >
+              <span>🎧 Fan / Esplora</span>
+              <span className="text-[9px] text-pink-400/80 font-normal">Alex Explorer</span>
+            </button>
+          </div>
+        </div>
+
         <p className="text-center text-xs text-slate-400 mt-6">
           {dict.auth.noAccount}{' '}
           <Link href="/auth/signup" className="text-cyan-400 underline hover:text-cyan-300">

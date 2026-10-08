@@ -16,9 +16,12 @@ export function UserNav({ user }: UserNavProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const handleSignOut = async () => {
+    try {
+      await fetch('/api/auth/demo-login', { method: 'DELETE' });
+    } catch {}
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.refresh();
+    window.location.href = '/';
   };
 
   if (!user) {
@@ -69,6 +72,13 @@ export function UserNav({ user }: UserNavProps) {
             <div className="px-4 py-2 border-b border-white/10">
               <p className="text-xs text-slate-400 truncate">{user.email}</p>
             </div>
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-2 px-4 py-2 text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
+            >
+              <User className="w-4 h-4 text-cyan-400" />
+              <span>Dashboard</span>
+            </Link>
             <Link
               href="/settings"
               className="flex items-center gap-2 px-4 py-2 text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
