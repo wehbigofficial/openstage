@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: #07070D;
+    --foreground: #F8FAFC;
+    --accent-violet: #8B5CF6;
+    --accent-cyan: #22D3EE;
+    --accent-pink: #F472B6;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-inter), sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-space-grotesk), sans-serif;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Glassmorphism utility classes */
+.glass-panel {
+  background: rgba(18, 18, 30, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-panel-glow {
+  background: rgba(18, 18, 30, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  box-shadow: 0 0 25px -5px rgba(139, 92, 246, 0.2);
+}
+
+.glass-card-hover {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card-hover:hover {
+  border-color: rgba(34, 211, 238, 0.4);
+  box-shadow: 0 10px 30px -10px rgba(34, 211, 238, 0.25);
+  transform: translateY(-2px);
+}
+
+/* Neon text & borders */
+.text-neon-cyan {
+  color: #22D3EE;
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.4);
+}
+
+.text-neon-violet {
+  color: #8B5CF6;
+  text-shadow: 0 0 12px rgba(139, 92, 246, 0.4);
+}
+
+.text-neon-pink {
+  color: #F472B6;
+  text-shadow: 0 0 12px rgba(244, 114, 182, 0.4);
+}
