@@ -5,9 +5,13 @@ import Link from 'next/link';
 import { EventItem } from '@/lib/data/demoEvents';
 import { formatEventDateTime } from '@/lib/utils/eventTime';
 import { getGoogleCalendarUrl, downloadIcsFile } from '@/lib/utils/calendar';
+import dynamic from 'next/dynamic';
 import { getEventUrl } from '@/lib/utils/slug';
-import ShareModal from '@/components/ShareModal';
-import ReportModal from '@/components/ReportModal';
+
+const ShareModal = dynamic(() => import('@/components/ShareModal'), { ssr: false });
+const ReportModal = dynamic(() => import('@/components/ReportModal'), { ssr: false });
+import { QuickAuthModal } from '@/components/QuickAuthModal';
+import { createClient } from '@/lib/supabase/client';
 import {
   Calendar,
   Clock,
@@ -15,6 +19,7 @@ import {
   Music,
   Ticket,
   Bookmark,
+  Bell,
   Share2,
   Navigation,
   AlertCircle,
@@ -39,10 +44,13 @@ export default function EventPageClient({
   venueEvents,
   nearbyEvents,
 }: EventPageClientProps) {
+  const [user, setUser] = useState<any>(null);
   const [isSaved, setIsSaved] = useState(false);
+  const [isReminded, setIsReminded] = useState(false);
   const [savesCount, setSavesCount] = useState<number>(12); // Real counter
   const [showShareModal, setShowShareModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [countdown, setCountdown] = useState<{
     days: number;
     hours: number;
@@ -50,6 +58,34 @@ export default function EventPageClient({
     seconds: number;
     isPast: boolean;
   }>({ days: 0, hours: 0, minutes: 0, seconds: 0, isPast: false });
+
+  // Load user session and check if saved or reminded
+  useEffect(() => {
+    async function initUser() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+
+      if (user) {
+        const { data: savedData } = await supabase
+          .from('fan_saved_events')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('event_id', event.id)
+          .maybeSingle();
+        if (savedData) setIsSaved(true);
+
+        const { data: remindData } = await supabase
+          .from('fan_event_reminders')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('event_id', event.id)
+          .maybeSingle();
+        if (remindData) setIsReminded(true);
+      }
+    }
+    initUser();
+  }, [event.id]);
 
   // Record session view once
   useEffect(() => {
@@ -96,27 +132,44 @@ export default function EventPageClient({
     return () => clearInterval(interval);
   }, [event.starts_at]);
 
-  const handleToggleSave = () => {
+  const handleToggleSave = async () => {
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
+
     try {
-      const saved = localStorage.getItem('openstage_saved_events');
-      let arr: string[] = saved ? JSON.parse(saved) : [];
-      let newCount = savesCount;
-      if (arr.includes(event.id)) {
-        arr = arr.filter((x) => x !== event.id);
-        setIsSaved(false);
-        newCount = Math.max(0, newCount - 1);
-      } else {
-        arr.push(event.id);
-        setIsSaved(true);
-        newCount += 1;
-        fetch('/api/events/stats', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ event_id: event.id, stat_type: 'save' }),
-        }).catch(() => {});
-      }
-      setSavesCount(newCount);
-      localStorage.setItem('openstage_saved_events', JSON.stringify(arr));
+      const nextSaved = !isSaved;
+      setIsSaved(nextSaved);
+      setSavesCount((c) => (nextSaved ? c + 1 : Math.max(0, c - 1)));
+
+      await fetch('/api/fan/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_id: event.id }),
+      });
+    } catch {}
+  };
+
+  const handleToggleRemind = async () => {
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
+
+    try {
+      const nextReminded = !isReminded;
+      setIsReminded(nextReminded);
+
+      await fetch('/api/fan/remind', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_id: event.id,
+          remind_day_before: true,
+          remind_morning_of: true,
+        }),
+      });
     } catch {}
   };
 
@@ -258,6 +311,18 @@ export default function EventPageClient({
             >
               <Bookmark className={`w-3.5 h-3.5 ${isSaved ? 'fill-white' : ''}`} />
               <span>{isSaved ? 'Salvato' : 'Salva'}</span>
+            </button>
+
+            <button
+              onClick={handleToggleRemind}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-semibold transition-all ${
+                isReminded
+                  ? 'bg-cyan-600 border-cyan-500 text-white shadow-md'
+                  : 'bg-white/5 border-white/10 text-slate-300 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Bell className={`w-3.5 h-3.5 ${isReminded ? 'fill-white' : ''}`} />
+              <span>{isReminded ? 'Promemoria attivo' : 'Promemoria'}</span>
             </button>
 
             <button
@@ -537,6 +602,13 @@ export default function EventPageClient({
         onClose={() => setShowReportModal(false)}
         eventId={event.id}
         eventTitle={event.title}
+      />
+
+      <QuickAuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        title="Accedi per salvare e impostare promemoria"
+        subtitle="Unisciti alla community di fan su OpenStage per ricevere notifiche e seguire i tuoi artisti preferiti."
       />
     </div>
   );

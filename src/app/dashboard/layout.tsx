@@ -1,10 +1,16 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import DashboardShell from '@/components/DashboardShell';
+
+export const instant = false;
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <DashboardShell>{children}</DashboardShell>;
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#07070D]" />}>
+      <DashboardShell>{children}</DashboardShell>
+    </Suspense>
+  );
 }

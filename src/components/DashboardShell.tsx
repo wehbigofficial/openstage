@@ -1,8 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 import {
   Calendar,
   PlusCircle,
@@ -11,16 +13,82 @@ import {
   Settings,
   Lock,
   Sparkles,
+  Compass,
+  Bookmark,
+  Heart,
 } from 'lucide-react';
 
 interface DashboardShellProps {
   children: React.ReactNode;
 }
 
-export default function DashboardShell({ children }: DashboardShellProps) {
+function DashboardShellInner({ children }: DashboardShellProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { t } = useLanguage();
+  const tab = searchParams.get('tab');
 
-  const navItems = [
+  const [role, setRole] = useState<'artist' | 'venue' | 'fan'>('fan');
+
+  useEffect(() => {
+    async function checkRole() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profile?.role) {
+          setRole(profile.role);
+        } else if (user.user_metadata?.role) {
+          setRole(user.user_metadata.role);
+        }
+      }
+    }
+    checkRole();
+  }, []);
+
+  const isFan = role === 'fan';
+
+  // Navigation items for fans
+  const fanNavItems = [
+    {
+      label: t.fan.forYouTab,
+      href: '/dashboard?tab=for-you',
+      icon: Compass,
+      active: pathname === '/dashboard' && (!tab || tab === 'for-you'),
+    },
+    {
+      label: t.fan.savedTab,
+      href: '/dashboard?tab=saved',
+      icon: Bookmark,
+      active: pathname === '/dashboard' && tab === 'saved',
+    },
+    {
+      label: t.fan.remindersTab,
+      href: '/dashboard?tab=reminders',
+      icon: Bell,
+      active: pathname === '/dashboard' && tab === 'reminders',
+    },
+    {
+      label: t.fan.followingTab,
+      href: '/dashboard?tab=following',
+      icon: Heart,
+      active: pathname === '/dashboard' && tab === 'following',
+    },
+    {
+      label: t.common.settings,
+      href: '/dashboard?tab=settings',
+      icon: Settings,
+      active: pathname === '/settings' || (pathname === '/dashboard' && tab === 'settings'),
+    },
+  ];
+
+  // Navigation items for artists and venues
+  const creatorNavItems = [
     {
       label: 'I miei eventi',
       href: '/dashboard',
@@ -53,14 +121,19 @@ export default function DashboardShell({ children }: DashboardShellProps) {
     },
   ];
 
+  const navItems = isFan ? fanNavItems : creatorNavItems;
+
   return (
     <div className="min-h-screen bg-[#07070D] flex flex-col md:flex-row pb-20 md:pb-0">
       {/* Desktop Left Sidebar */}
       <aside className="hidden md:flex flex-col w-64 border-r border-white/10 bg-[#0A0A14]/80 backdrop-blur-xl shrink-0 p-5 justify-between">
         <div className="space-y-6">
-          <div className="px-3 py-2">
+          <div className="px-3 py-2 flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
-              Dashboard
+              {isFan ? t.fan.dashboardTitle : 'Creator Hub'}
+            </span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-violet-500/20 text-violet-300 border border-violet-500/30">
+              {role}
             </span>
           </div>
 
@@ -84,45 +157,51 @@ export default function DashboardShell({ children }: DashboardShellProps) {
             })}
           </nav>
 
-          {/* Pro Items (Locked Cards) */}
-          <div className="pt-6 border-t border-white/10 space-y-3">
-            <div className="flex items-center justify-between px-3 text-xs font-bold text-amber-400 uppercase tracking-wider">
-              <span className="flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Funzioni PRO</span>
-              </span>
-              <Lock className="w-3 h-3 text-amber-400/70" />
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-purple-500/5 to-transparent border border-amber-500/20 space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold text-white">
-                <span>Biglietteria Diretta 0%</span>
-                <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono">
-                  PRO
+          {/* Pro Items (Locked Cards) - ONLY for artists and venues, NEVER for fans */}
+          {!isFan && (
+            <div className="pt-6 border-t border-white/10 space-y-3">
+              <div className="flex items-center justify-between px-3 text-xs font-bold text-amber-400 uppercase tracking-wider">
+                <span className="flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Funzioni PRO</span>
                 </span>
+                <Lock className="w-3 h-3 text-amber-400/70" />
               </div>
-              <p className="text-[11px] text-slate-400 leading-snug">
-                Vendi biglietti direttamente senza commissioni tramite Stripe Connect.
-              </p>
-            </div>
 
-            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-pink-500/10 via-purple-500/5 to-transparent border border-pink-500/20 space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold text-white">
-                <span>Statistiche Fan & CRM</span>
-                <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-300 font-mono">
-                  PRO
-                </span>
+              <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-purple-500/5 to-transparent border border-amber-500/20 space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-white">
+                  <span>Biglietteria Diretta 0%</span>
+                  <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono">
+                    PRO
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-snug">
+                  Vendi biglietti direttamente senza commissioni tramite Stripe Connect.
+                </p>
               </div>
-              <p className="text-[11px] text-slate-400 leading-snug">
-                Dati demografici, origini delle visualizzazioni e lista email fan.
-              </p>
+
+              <div className="p-3.5 rounded-2xl bg-gradient-to-br from-pink-500/10 via-purple-500/5 to-transparent border border-pink-500/20 space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-white">
+                  <span>Statistiche Fan & CRM</span>
+                  <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-300 font-mono">
+                    PRO
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-snug">
+                  Dati demografici, origini delle visualizzazioni e lista email fan.
+                </p>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div className="p-3 rounded-xl bg-white/5 border border-white/5 text-[11px] text-slate-400">
-          <p className="text-slate-300 font-medium">OpenStage Indie Club</p>
-          <p className="text-[10px]">Tutti gli eventi sono aperti e gratuiti da pubblicare.</p>
+          <p className="text-slate-300 font-medium">OpenStage Community</p>
+          <p className="text-[10px]">
+            {isFan
+              ? 'Nessun abbonamento a pagamento per i fan. Musica dal vivo aperta a tutti.'
+              : 'Tutti gli eventi sono aperti e gratuiti da pubblicare.'}
+          </p>
         </div>
       </aside>
 
@@ -150,5 +229,13 @@ export default function DashboardShell({ children }: DashboardShellProps) {
         })}
       </div>
     </div>
+  );
+}
+
+export default function DashboardShell({ children }: DashboardShellProps) {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#07070D]" />}>
+      <DashboardShellInner>{children}</DashboardShellInner>
+    </Suspense>
   );
 }

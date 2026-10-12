@@ -1,7 +1,7 @@
 export interface DemoUser {
   id: string;
   email: string;
-  role: 'artist' | 'venue' | 'fan';
+  role: 'artist' | 'venue' | 'fan' | 'admin';
   display_name: string;
   city: string;
   country: string;
@@ -50,6 +50,19 @@ export const DEMO_ACCOUNTS: Record<string, DemoUser> = {
     user_metadata: {
       role: 'fan',
       display_name: 'Alex Explorer',
+    },
+  },
+  admin: {
+    id: '00000000-0000-0000-0000-000000000009',
+    email: 'admin@openstage.it',
+    role: 'admin',
+    display_name: 'OpenStage Administrator',
+    city: 'Roma',
+    country: 'Italy',
+    email_confirmed_at: '2026-01-01T00:00:00.000Z',
+    user_metadata: {
+      role: 'admin',
+      display_name: 'OpenStage Administrator',
     },
   },
 };

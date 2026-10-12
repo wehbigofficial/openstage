@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { dict } from '@/lib/dictionary';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 export function Footer() {
   return (
@@ -31,14 +32,17 @@ export function Footer() {
           </Link>
         </div>
 
-        {/* Social placeholders & Copyright */}
-        <div className="flex flex-col items-center md:items-end gap-2 text-xs text-slate-500">
+        {/* Social placeholders & Copyright & Language */}
+        <div className="flex flex-col items-center md:items-end gap-3 text-xs text-slate-500">
           <div className="flex items-center gap-4 text-slate-400">
             <span className="hover:text-cyan-400 cursor-pointer transition-colors">Instagram</span>
             <span className="hover:text-violet-400 cursor-pointer transition-colors">X</span>
             <span className="hover:text-pink-400 cursor-pointer transition-colors">YouTube</span>
           </div>
-          <span>{dict.footer.copyright}</span>
+          <div className="flex items-center gap-3">
+            <LanguageSwitcher />
+            <span>{dict.footer.copyright}</span>
+          </div>
         </div>
       </div>
     </footer>

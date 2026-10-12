@@ -24,6 +24,15 @@ export async function POST(request: NextRequest) {
       httpOnly: false, // Accessible to client as well
     });
 
+    if (role === 'admin') {
+      response.cookies.set('openstage_admin_mfa_verified', 'true', {
+        path: '/',
+        maxAge: 60 * 60 * 24 * 7,
+        sameSite: 'lax',
+        httpOnly: true,
+      });
+    }
+
     return response;
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -33,5 +42,6 @@ export async function POST(request: NextRequest) {
 export async function DELETE() {
   const response = NextResponse.json({ success: true });
   response.cookies.delete('openstage_demo_user');
+  response.cookies.delete('openstage_admin_mfa_verified');
   return response;
 }

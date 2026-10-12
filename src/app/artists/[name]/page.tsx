@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getFutureEvents } from '@/lib/services/eventsService';
 import { getEventUrl } from '@/lib/utils/slug';
 import { Music, MapPin, Sparkles, Calendar } from 'lucide-react';
+import { FollowButton } from '@/components/FollowButton';
 
 interface ArtistPageProps {
   params: Promise<{
@@ -43,12 +44,21 @@ export default async function PublicArtistPage({ params }: ArtistPageProps) {
               </span>
             )}
           </div>
+
           <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
             {decodedName}
           </h1>
           <p className="text-sm text-slate-400">
             {sample ? `${sample.city}, ${sample.country}` : 'Città globale'}
           </p>
+        </div>
+
+        <div className="shrink-0">
+          <FollowButton
+            targetId={sample?.owner_id || decodedName}
+            targetType="artist"
+            targetName={decodedName}
+          />
         </div>
       </div>
 

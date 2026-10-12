@@ -1,6 +1,4 @@
-'use client';
-
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { EventItem } from '@/lib/data/demoEvents';
 import {
   Search,
@@ -53,7 +51,7 @@ interface SuggestionGroup {
   }>;
 }
 
-export function SearchAndFilters({
+export const SearchAndFilters = React.memo(function SearchAndFilters({
   events,
   filters,
   onChangeFilters,
@@ -659,4 +657,4 @@ export function SearchAndFilters({
       )}
     </div>
   );
-}
+});

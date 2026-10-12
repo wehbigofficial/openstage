@@ -13,6 +13,8 @@ import {
   ExternalLink,
 } from 'lucide-react';
 
+import React from 'react';
+
 interface EventCardProps {
   event: EventItem;
   distanceKm?: number | null;
@@ -21,7 +23,7 @@ interface EventCardProps {
   isSaved?: boolean;
 }
 
-export function EventCard({
+export const EventCard = React.memo(function EventCard({
   event,
   distanceKm,
   onSelect,
@@ -45,6 +47,7 @@ export function EventCard({
           alt={event.title}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           loading="lazy"
+          decoding="async"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0F0F1A] via-transparent to-black/30" />
 
@@ -181,4 +184,4 @@ export function EventCard({
       </div>
     </div>
   );
-}
+});

@@ -1,6 +1,4 @@
-'use client';
-
-import { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import {
   Compass,
@@ -25,48 +23,48 @@ interface BentoGridSectionProps {
   };
 }
 
-export function BentoGridSection({ stats }: BentoGridSectionProps) {
-  const [animatedStats, setAnimatedStats] = useState({
-    artists: 0,
-    events: 0,
-    cities: 0,
-  });
-  const [hasAnimated, setHasAnimated] = useState(false);
+export const BentoGridSection = React.memo(function BentoGridSection({ stats }: BentoGridSectionProps) {
   const sectionRef = useRef<HTMLDivElement>(null);
+  const artistsRef = useRef<HTMLSpanElement>(null);
+  const eventsRef = useRef<HTMLSpanElement>(null);
+  const citiesRef = useRef<HTMLSpanElement>(null);
+  const hasAnimatedRef = useRef(false);
 
-  // Trigger counter animation on scroll into view
+  // Trigger smooth counter animation on scroll into view with 0 React re-renders
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !hasAnimated) {
-          setHasAnimated(true);
+        if (entries[0].isIntersecting && !hasAnimatedRef.current) {
+          hasAnimatedRef.current = true;
 
-          const duration = 1600;
-          const steps = 30;
-          const stepTime = duration / steps;
-          let currentStep = 0;
+          const duration = 1200;
+          let startTime: number | null = null;
 
-          const interval = setInterval(() => {
-            currentStep++;
-            const progress = currentStep / steps;
-            const easeOutQuad = (t: number) => t * (2 - t);
-            const factor = easeOutQuad(progress);
+          const step = (timestamp: number) => {
+            if (!startTime) startTime = timestamp;
+            const progress = Math.min((timestamp - startTime) / duration, 1);
+            const factor = progress * (2 - progress); // easeOutQuad
 
-            setAnimatedStats({
-              artists: Math.floor(stats.artistsCount * factor),
-              events: Math.floor(stats.eventsCount * factor),
-              cities: Math.floor(stats.citiesCount * factor),
-            });
-
-            if (currentStep >= steps) {
-              clearInterval(interval);
-              setAnimatedStats({
-                artists: stats.artistsCount,
-                events: stats.eventsCount,
-                cities: stats.citiesCount,
-              });
+            if (artistsRef.current) {
+              artistsRef.current.textContent = String(Math.floor(stats.artistsCount * factor));
             }
-          }, stepTime);
+            if (eventsRef.current) {
+              eventsRef.current.textContent = String(Math.floor(stats.eventsCount * factor));
+            }
+            if (citiesRef.current) {
+              citiesRef.current.textContent = String(Math.floor(stats.citiesCount * factor));
+            }
+
+            if (progress < 1) {
+              requestAnimationFrame(step);
+            } else {
+              if (artistsRef.current) artistsRef.current.textContent = String(stats.artistsCount);
+              if (eventsRef.current) eventsRef.current.textContent = String(stats.eventsCount);
+              if (citiesRef.current) citiesRef.current.textContent = String(stats.citiesCount);
+            }
+          };
+
+          requestAnimationFrame(step);
         }
       },
       { threshold: 0.15 }
@@ -77,7 +75,7 @@ export function BentoGridSection({ stats }: BentoGridSectionProps) {
     }
 
     return () => observer.disconnect();
-  }, [hasAnimated, stats]);
+  }, [stats]);
 
   return (
     <section ref={sectionRef} className="w-full pt-16 pb-20 space-y-12">
@@ -92,7 +90,7 @@ export function BentoGridSection({ stats }: BentoGridSectionProps) {
             </span>
           </div>
           <div className="text-3xl sm:text-4xl font-extrabold text-white">
-            {animatedStats.artists}
+            <span ref={artistsRef}>0</span>
             <span className="text-violet-400">+</span>
           </div>
           <p className="text-xs text-slate-400">Independent musicians & bands</p>
@@ -107,7 +105,7 @@ export function BentoGridSection({ stats }: BentoGridSectionProps) {
             </span>
           </div>
           <div className="text-3xl sm:text-4xl font-extrabold text-white">
-            {animatedStats.events}
+            <span ref={eventsRef}>0</span>
             <span className="text-cyan-400">+</span>
           </div>
           <p className="text-xs text-slate-400">Published live gigs worldwide</p>
@@ -122,7 +120,7 @@ export function BentoGridSection({ stats }: BentoGridSectionProps) {
             </span>
           </div>
           <div className="text-3xl sm:text-4xl font-extrabold text-white">
-            {animatedStats.cities}
+            <span ref={citiesRef}>0</span>
             <span className="text-pink-400">+</span>
           </div>
           <p className="text-xs text-slate-400">Global underground music scenes</p>
@@ -318,4 +316,4 @@ export function BentoGridSection({ stats }: BentoGridSectionProps) {
       </div>
     </section>
   );
-}
+});

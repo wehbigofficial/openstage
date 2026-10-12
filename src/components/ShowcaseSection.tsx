@@ -1,11 +1,9 @@
-'use client';
-
-import { useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { EventItem } from '@/lib/data/demoEvents';
 import { EventCard } from '@/components/EventCard';
 import { EventTable } from '@/components/EventTable';
-import { Map2DSection } from '@/components/Map2DSection';
 import {
   LayoutGrid,
   Table as TableIcon,
@@ -18,6 +16,18 @@ import {
   Send,
 } from 'lucide-react';
 
+const Map2DSection = dynamic(
+  () => import('@/components/Map2DSection').then((mod) => mod.Map2DSection),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-[450px] sm:h-[520px] rounded-2xl glass-panel border border-white/10 flex items-center justify-center text-slate-400">
+        <div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    ),
+  }
+);
+
 interface ShowcaseSectionProps {
   events: EventItem[];
   allUpcomingEvents: EventItem[]; // For empty state closest events fallback
@@ -28,7 +38,7 @@ interface ShowcaseSectionProps {
   userCoords: { lat: number; lng: number } | null;
 }
 
-export function ShowcaseSection({
+export const ShowcaseSection = React.memo(function ShowcaseSection({
   events,
   allUpcomingEvents,
   getDistance,
@@ -297,4 +307,4 @@ export function ShowcaseSection({
       )}
     </div>
   );
-}
+});

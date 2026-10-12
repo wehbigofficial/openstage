@@ -164,7 +164,7 @@ export default function LoginPage() {
             Fai subito il login come uno dei 3 ruoli per esplorare le relative sezioni:
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
             <button
               type="button"
               onClick={async () => {
@@ -195,7 +195,7 @@ export default function LoginPage() {
               }}
               className="py-2.5 px-3 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/40 text-cyan-300 font-semibold text-xs transition-all active:scale-95 flex flex-col items-center gap-0.5"
             >
-              <span>🏛️ Venue / Club</span>
+              <span>🏛️ Locale</span>
               <span className="text-[9px] text-cyan-400/80 font-normal">Lanificio 159</span>
             </button>
 
@@ -212,8 +212,25 @@ export default function LoginPage() {
               }}
               className="py-2.5 px-3 rounded-xl bg-pink-600/20 hover:bg-pink-600/30 border border-pink-500/40 text-pink-300 font-semibold text-xs transition-all active:scale-95 flex flex-col items-center gap-0.5"
             >
-              <span>🎧 Fan / Esplora</span>
+              <span>🎧 Fan</span>
               <span className="text-[9px] text-pink-400/80 font-normal">Alex Explorer</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                setLoading(true);
+                await fetch('/api/auth/demo-login', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ role: 'admin' }),
+                });
+                window.location.href = '/admin';
+              }}
+              className="py-2.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-semibold text-xs transition-all active:scale-95 flex flex-col items-center gap-0.5"
+            >
+              <span>🛡️ Admin</span>
+              <span className="text-[9px] text-amber-400/80 font-normal">Pannello /admin</span>
             </button>
           </div>
         </div>

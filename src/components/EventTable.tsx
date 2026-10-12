@@ -13,6 +13,8 @@ import {
   AlertCircle,
 } from 'lucide-react';
 
+import React from 'react';
+
 interface EventTableProps {
   events: EventItem[];
   userCoords?: { lat: number; lng: number } | null;
@@ -22,7 +24,7 @@ interface EventTableProps {
   savedEventIds?: string[];
 }
 
-export function EventTable({
+export const EventTable = React.memo(function EventTable({
   events,
   getDistance,
   onSelect,
@@ -198,4 +200,4 @@ export function EventTable({
       </div>
     </div>
   );
-}
+});

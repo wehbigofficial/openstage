@@ -38,13 +38,17 @@ export default function ReportModal({
     e.preventDefault();
     setSubmitting(true);
     try {
-      const supabase = createClient();
-      await supabase.from('event_reports').insert({
-        event_id: eventId,
-        reporter_email: email || null,
-        reason: selectedReason,
-        details: details || null,
+      const res = await fetch('/api/events/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_id: eventId,
+          reason: selectedReason,
+          details: details || null,
+          email: email || null,
+        }),
       });
+
       setSubmitted(true);
       setTimeout(() => {
         setSubmitted(false);
@@ -52,7 +56,6 @@ export default function ReportModal({
       }, 2000);
     } catch (err) {
       console.error('Report submission error', err);
-      // Still show thanks to user to avoid exposing db errors on report
       setSubmitted(true);
       setTimeout(() => {
         setSubmitted(false);

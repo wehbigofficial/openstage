@@ -86,6 +86,15 @@ export function UserNav({ user }: UserNavProps) {
               <Settings className="w-4 h-4 text-slate-400" />
               {dict.common.settings}
             </Link>
+            {(user.email?.toLowerCase().includes('admin') || user.user_metadata?.role === 'admin') && (
+              <Link
+                href="/admin"
+                className="flex items-center gap-2 px-4 py-2 text-amber-300 hover:text-amber-200 hover:bg-white/5 transition-colors font-semibold"
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <span>Pannello Admin</span>
+              </Link>
+            )}
             <button
               onClick={handleSignOut}
               className="w-full flex items-center gap-2 px-4 py-2 text-rose-400 hover:text-rose-300 hover:bg-white/5 text-left transition-colors"

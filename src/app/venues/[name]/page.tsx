@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getFutureEvents } from '@/lib/services/eventsService';
 import { getEventUrl } from '@/lib/utils/slug';
 import { Building, MapPin, Calendar, ExternalLink } from 'lucide-react';
+import { FollowButton } from '@/components/FollowButton';
 
 interface VenuePageProps {
   params: Promise<{
@@ -44,6 +45,14 @@ export default async function PublicVenuePage({ params }: VenuePageProps) {
             <MapPin className="w-4 h-4 text-pink-400" />
             <span>{sample ? sample.address || `${sample.city}, ${sample.country}` : 'Location live'}</span>
           </p>
+        </div>
+
+        <div className="shrink-0">
+          <FollowButton
+            targetId={(sample as any)?.venue_id || sample?.owner_id || decodedName}
+            targetType="venue"
+            targetName={decodedName}
+          />
         </div>
       </div>
 

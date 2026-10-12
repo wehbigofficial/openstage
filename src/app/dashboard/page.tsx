@@ -23,9 +23,12 @@ import {
   Sparkles,
 } from 'lucide-react';
 
+import FanDashboard from '@/components/FanDashboard';
+
 export default function MyEventsDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const [userRole, setUserRole] = useState<'artist' | 'venue' | 'fan'>('artist');
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedShareEvent, setSelectedShareEvent] = useState<EventItem | null>(null);
@@ -36,6 +39,17 @@ export default function MyEventsDashboard() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
+
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        const role = profile?.role || user.user_metadata?.role || 'artist';
+        setUserRole(role);
+      }
 
       // Load events owned by user or demo events fallback
       const all = await getAllEvents();
@@ -50,6 +64,10 @@ export default function MyEventsDashboard() {
     }
     loadData();
   }, []);
+
+  if (!loading && user && userRole === 'fan') {
+    return <FanDashboard initialUser={user} />;
+  }
 
   // Duplicate event to a new date
   const handleDuplicate = async (evt: EventItem) => {
@@ -98,11 +116,22 @@ export default function MyEventsDashboard() {
             important_change_flag: true,
           })
           .eq('id', evt.id);
+
+        // Dispatch notifications to reminder holders
+        fetch('/api/events/notify-change', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            eventId: evt.id,
+            changeType: 'cancelled',
+            description: `Il concerto "${evt.title}" è stato annullato dall'organizzatore.`,
+          }),
+        }).catch(() => {});
       }
       setEvents((prev) =>
         prev.map((e) => (e.id === evt.id ? { ...e, status: 'cancelled' } : e))
       );
-      setActionNotice('Evento contrassegnato come annullato. I fan registrati riceveranno una notifica.');
+      setActionNotice('Evento annullato. I promemoria dei fan sono stati notificati via email.');
       setTimeout(() => setActionNotice(null), 4000);
     } catch (err: any) {
       console.error('Cancel error', err);

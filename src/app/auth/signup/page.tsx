@@ -18,6 +18,8 @@ function SignUpForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [city, setCity] = useState('');
+  const [consentDigest, setConsentDigest] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
@@ -45,6 +47,7 @@ function SignUpForm() {
           data: {
             role,
             display_name: displayName,
+            city: city.trim() || undefined,
           },
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
@@ -56,23 +59,40 @@ function SignUpForm() {
       }
 
       if (data.user) {
-        if (!data.session) {
-          setSuccessMessage(dict.auth.checkEmailConfirmation);
-          return;
-        }
+        // Enqueue welcome email in background
+        fetch('/api/email/welcome', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: data.user.id,
+            email,
+            name: displayName || email.split('@')[0],
+            role,
+          }),
+        }).catch(() => {});
 
         await supabase.from('profiles').upsert({
           id: data.user.id,
           role,
           display_name: displayName || email.split('@')[0],
+          city: city.trim() || null,
+          country: 'Italy',
+          email_consent_digest: consentDigest,
+          email_reminders_day_before: true,
+          email_reminders_morning_of: true,
         });
+
+        if (!data.session) {
+          setSuccessMessage(dict.auth.checkEmailConfirmation);
+          return;
+        }
 
         if (role === 'artist') {
           router.push('/onboarding/artist');
         } else if (role === 'venue') {
           router.push('/events/new');
         } else {
-          router.push('/explore');
+          router.push('/dashboard');
         }
       }
     } catch (err: any) {
@@ -252,7 +272,34 @@ function SignUpForm() {
                 />
               </div>
 
-              <div className="flex items-start gap-2.5 pt-2">
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  {dict.auth.optionalCityLabel}
+                </label>
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 text-sm"
+                  placeholder="e.g. Milano, Bologna, Roma..."
+                />
+              </div>
+
+              {/* Weekly Digest Consent Box (Unchecked by default as required) */}
+              <div className="flex items-start gap-2.5 pt-2 p-3 rounded-xl bg-white/5 border border-white/5">
+                <input
+                  type="checkbox"
+                  id="consentDigest"
+                  checked={consentDigest}
+                  onChange={(e) => setConsentDigest(e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-cyan-500 focus:ring-cyan-400 focus:ring-offset-0 cursor-pointer"
+                />
+                <label htmlFor="consentDigest" className="text-xs text-slate-300 leading-relaxed cursor-pointer">
+                  {dict.auth.consentWeeklyDigest}
+                </label>
+              </div>
+
+              <div className="flex items-start gap-2.5 pt-1">
                 <input
                   type="checkbox"
                   id="terms"

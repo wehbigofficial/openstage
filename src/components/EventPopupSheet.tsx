@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { EventItem } from '@/lib/data/demoEvents';
 import { formatEventDateTime } from '@/lib/utils/eventTime';
 import { getEventUrl } from '@/lib/utils/slug';
+import { QuickAuthModal } from '@/components/QuickAuthModal';
+import { createClient } from '@/lib/supabase/client';
 import {
   X,
   Calendar,
@@ -14,6 +16,7 @@ import {
   ExternalLink,
   Ticket,
   Bookmark,
+  Bell,
   Share2,
   Check,
   AlertCircle,
@@ -26,7 +29,7 @@ interface EventPopupSheetProps {
   isSaved?: boolean;
 }
 
-export function EventPopupSheet({
+export const EventPopupSheet = React.memo(function EventPopupSheet({
   event,
   onClose,
   onSave,
@@ -34,6 +37,9 @@ export function EventPopupSheet({
 }: EventPopupSheetProps) {
   const [copied, setCopied] = useState(false);
   const [savedLocal, setSavedLocal] = useState(isSaved);
+  const [remindedLocal, setRemindedLocal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const userRef = useRef<any>(null);
 
   if (!event) return null;
 
@@ -47,7 +53,7 @@ export function EventPopupSheet({
   )}`;
 
   const handleShare = async () => {
-    const url = typeof window !== 'undefined' ? `${window.location.origin}/events/${event.id}` : '';
+    const url = typeof window !== 'undefined' ? `${window.location.origin}${getEventUrl(event)}` : '';
     const shareData = {
       title: `${event.title} - ${event.artist_name}`,
       text: `Check out ${event.artist_name} live at ${event.venue_name} on OpenStage!`,
@@ -70,11 +76,57 @@ export function EventPopupSheet({
     }
   };
 
-  const handleToggleSave = () => {
-    setSavedLocal(!savedLocal);
+  const getOrFetchUser = async () => {
+    if (userRef.current) return userRef.current;
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      userRef.current = user;
+      return user;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleToggleSave = async () => {
+    const u = await getOrFetchUser();
+    if (!u) {
+      setShowAuthModal(true);
+      return;
+    }
+    const nextSaved = !savedLocal;
+    setSavedLocal(nextSaved);
     if (onSave) {
       onSave(event);
     }
+    try {
+      await fetch('/api/fan/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_id: event.id }),
+      });
+    } catch {}
+  };
+
+  const handleToggleRemind = async () => {
+    const u = await getOrFetchUser();
+    if (!u) {
+      setShowAuthModal(true);
+      return;
+    }
+    const nextReminded = !remindedLocal;
+    setRemindedLocal(nextReminded);
+    try {
+      await fetch('/api/fan/remind', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_id: event.id,
+          remind_day_before: true,
+          remind_morning_of: true,
+        }),
+      });
+    } catch {}
   };
 
   return (
@@ -209,13 +261,13 @@ export function EventPopupSheet({
               )}
             </div>
 
-            {/* Secondary row: Open in Google Maps, Save, Share */}
-            <div className="grid grid-cols-3 gap-2">
+            {/* Secondary row: Open in Google Maps, Save, Remind, Share */}
+            <div className="grid grid-cols-4 gap-2">
               <a
                 href={googleMapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-cyan-400/40 text-slate-300 hover:text-white text-xs transition-colors"
+                className="flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-cyan-400/40 text-slate-300 hover:text-white text-xs transition-colors"
                 title="Open in Google Maps"
               >
                 <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />
@@ -224,7 +276,7 @@ export function EventPopupSheet({
 
               <button
                 onClick={handleToggleSave}
-                className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-xs transition-colors ${
+                className={`flex items-center justify-center gap-1 px-2 py-2 rounded-xl border text-xs transition-colors ${
                   savedLocal
                     ? 'bg-violet-900/40 border-violet-500 text-violet-300'
                     : 'bg-white/5 border-white/10 hover:border-violet-400/40 text-slate-300 hover:text-white'
@@ -235,22 +287,39 @@ export function EventPopupSheet({
                     savedLocal ? 'fill-violet-400 text-violet-400' : 'text-violet-400'
                   }`}
                 />
-                <span>{savedLocal ? 'Saved' : 'Save'}</span>
+                <span className="truncate">{savedLocal ? 'Saved' : 'Save'}</span>
+              </button>
+
+              <button
+                onClick={handleToggleRemind}
+                className={`flex items-center justify-center gap-1 px-2 py-2 rounded-xl border text-xs transition-colors ${
+                  remindedLocal
+                    ? 'bg-cyan-900/40 border-cyan-500 text-cyan-300'
+                    : 'bg-white/5 border-white/10 hover:border-cyan-400/40 text-slate-300 hover:text-white'
+                }`}
+                title="Promemoria"
+              >
+                <Bell
+                  className={`w-3.5 h-3.5 ${
+                    remindedLocal ? 'fill-cyan-400 text-cyan-400' : 'text-cyan-400'
+                  }`}
+                />
+                <span className="truncate">{remindedLocal ? 'Attivo' : 'Memo'}</span>
               </button>
 
               <button
                 onClick={handleShare}
-                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-pink-400/40 text-slate-300 hover:text-white text-xs transition-colors"
+                className="flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-pink-400/40 text-slate-300 hover:text-white text-xs transition-colors"
               >
                 {copied ? (
                   <>
                     <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="text-emerald-400">Copied!</span>
+                    <span className="text-emerald-400 text-[11px]">OK</span>
                   </>
                 ) : (
                   <>
                     <Share2 className="w-3.5 h-3.5 text-pink-400" />
-                    <span>Share</span>
+                    <span className="truncate">Share</span>
                   </>
                 )}
               </button>
@@ -258,6 +327,13 @@ export function EventPopupSheet({
           </div>
         </div>
       </div>
+
+      <QuickAuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        title="Accedi per salvare e impostare promemoria"
+        subtitle="Unisciti a OpenStage per salvare eventi, impostare promemoria e seguire i tuoi artisti preferiti."
+      />
     </div>
   );
-}
+});

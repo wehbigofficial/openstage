@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import * as maplibregl from 'maplibre-gl';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import type * as MapLibreTypes from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { EventItem } from '@/lib/data/demoEvents';
 import { getMapStyle } from '@/lib/map/style';
-import { Maximize2, Minimize2, Navigation, Compass, Layers, RotateCcw } from 'lucide-react';
+import { Maximize2, Minimize2, Navigation, Compass, RotateCcw } from 'lucide-react';
 
 interface GlobeHeroProps {
   events: EventItem[];
@@ -15,7 +15,7 @@ interface GlobeHeroProps {
   userCoords?: { lat: number; lng: number } | null;
 }
 
-export function GlobeHero({
+export const GlobeHero = React.memo(function GlobeHero({
   events,
   onSelectEvent,
   selectedEventId,
@@ -23,96 +23,368 @@ export function GlobeHero({
   userCoords,
 }: GlobeHeroProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
-  const markersRef = useRef<maplibregl.Marker[]>([]);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isRotating, setIsRotating] = useState(true);
-  const [initialLoaded, setInitialLoaded] = useState(false);
+  const mapRef = useRef<MapLibreTypes.Map | null>(null);
+  const popupRef = useRef<MapLibreTypes.Popup | null>(null);
+  const isIntersectingRef = useRef(false);
+  const isRotatingRef = useRef(true);
   const rotateTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const eventsMapRef = useRef<Map<string, EventItem>>(new Map());
 
-  // Initialize MapLibre with globe projection
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [initialLoaded, setInitialLoaded] = useState(false);
+
+  // Keep an O(1) lookup map for events
+  useEffect(() => {
+    const map = new Map<string, EventItem>();
+    events.forEach((e) => map.set(e.id, e));
+    eventsMapRef.current = map;
+  }, [events]);
+
+  // Convert events list to GeoJSON FeatureCollection
+  const toGeoJSON = useCallback((items: EventItem[]): GeoJSON.FeatureCollection => {
+    return {
+      type: 'FeatureCollection',
+      features: items.map((e) => ({
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [e.lng, e.lat],
+        },
+        properties: {
+          id: e.id,
+          title: e.title,
+          artist_name: e.artist_name,
+          venue_name: e.venue_name,
+          city: e.city,
+          genre: e.genre,
+          is_featured: !!e.is_featured,
+          approximate: !!e.approximate_location,
+        },
+      })),
+    };
+  }, []);
+
+  // Initialize MapLibre with capped pixel ratio and globe projection
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    if (maplibregl.config) {
-      maplibregl.config.WORKER_URL = '/maplibre-gl-worker.mjs';
-    }
+    let isMounted = true;
 
-    // Default center: Italy
-    const defaultLng = 12.5674;
-    const defaultLat = 41.8719;
+    async function initMap() {
+      const maplibregl = await import('maplibre-gl');
+      if (!isMounted || !containerRef.current) return;
 
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: getMapStyle(),
-      center: [defaultLng, defaultLat],
-      zoom: 2.2,
-      minZoom: 1.5,
-      maxZoom: 14,
-      cooperativeGestures: true, // One-finger swipe scrolls page on mobile
-    });
-
-    mapRef.current = map;
-
-    map.on('load', () => {
-      // Set globe projection
-      try {
-        map.setProjection({ type: 'globe' });
-      } catch (err) {
-        console.warn('Globe projection fallback:', err);
+      if (maplibregl.config) {
+        maplibregl.config.WORKER_URL = '/maplibre-gl-worker.mjs';
       }
 
-      setInitialLoaded(true);
+      const defaultDpr = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 2);
 
-      // Fetch approximate visitor location from server geo headers
-      fetch('/api/geo')
-        .then((res) => res.json())
-        .then((geo) => {
-          if (geo && typeof geo.lng === 'number' && typeof geo.lat === 'number') {
-            map.flyTo({
-              center: [geo.lng, geo.lat],
-              zoom: geo.isDefault ? 2.5 : 3.5,
-              duration: 2500,
-              essential: true,
-            });
-          }
-        })
-        .catch(() => {
-          // Keep Italy fallback
+      const map = new maplibregl.Map({
+        container: containerRef.current,
+        style: getMapStyle(),
+        center: [12.5674, 41.8719],
+        zoom: 2.2,
+        minZoom: 1.5,
+        maxZoom: 14,
+        cooperativeGestures: true,
+        pixelRatio: defaultDpr,
+      });
+
+      mapRef.current = map;
+
+      // Lower pixel ratio while dragging for smooth performance
+      map.on('dragstart', () => {
+        try { map.setPixelRatio(1); } catch {}
+      });
+      map.on('dragend', () => {
+        try { map.setPixelRatio(defaultDpr); } catch {}
+      });
+
+      // Single shared hover popup
+      popupRef.current = new maplibregl.Popup({
+        closeButton: false,
+        closeOnClick: false,
+        offset: 14,
+      });
+
+      map.on('load', () => {
+        if (!isMounted) return;
+
+        try {
+          map.setProjection({ type: 'globe' });
+        } catch (err) {
+          console.warn('Globe projection fallback:', err);
+        }
+
+        // Add clustered GeoJSON source
+        map.addSource('events-source', {
+          type: 'geojson',
+          data: toGeoJSON(events),
+          cluster: true,
+          clusterMaxZoom: 12,
+          clusterRadius: 45,
         });
-    });
 
-    // Handle user interaction pauses for idle rotation
-    const pauseRotation = () => {
-      setIsRotating(false);
-      if (rotateTimerRef.current) clearTimeout(rotateTimerRef.current);
-      rotateTimerRef.current = setTimeout(() => {
-        setIsRotating(true);
-      }, 7000);
-    };
+        // 1. Cluster Circles Layer
+        map.addLayer({
+          id: 'clusters',
+          type: 'circle',
+          source: 'events-source',
+          filter: ['has', 'point_count'],
+          paint: {
+            'circle-color': [
+              'step',
+              ['get', 'point_count'],
+              '#7C3AED',
+              5,
+              '#8B5CF6',
+              15,
+              '#06B6D4',
+            ],
+            'circle-radius': [
+              'step',
+              ['get', 'point_count'],
+              16,
+              5,
+              22,
+              15,
+              28,
+            ],
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#FFFFFF',
+            'circle-opacity': 0.9,
+          },
+        });
 
-    map.on('mousedown', pauseRotation);
-    map.on('touchstart', pauseRotation);
-    map.on('wheel', pauseRotation);
+        // 2. Cluster Count Text Layer
+        map.addLayer({
+          id: 'cluster-count',
+          type: 'symbol',
+          source: 'events-source',
+          filter: ['has', 'point_count'],
+          layout: {
+            'text-field': '{point_count_abbreviated}',
+            'text-font': ['Open Sans Semibold'],
+            'text-size': 11,
+          },
+          paint: {
+            'text-color': '#FFFFFF',
+          },
+        });
+
+        // 3. Approximate Area Layer
+        map.addLayer({
+          id: 'unclustered-approx',
+          type: 'circle',
+          source: 'events-source',
+          filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'approximate'], true]],
+          paint: {
+            'circle-color': 'rgba(139, 92, 246, 0.25)',
+            'circle-radius': 18,
+            'circle-stroke-width': 1.5,
+            'circle-stroke-color': 'rgba(167, 139, 250, 0.7)',
+          },
+        });
+
+        // 4. Unclustered Outer Glow Layer (CSS/layer effect)
+        map.addLayer({
+          id: 'unclustered-glow',
+          type: 'circle',
+          source: 'events-source',
+          filter: ['!', ['has', 'point_count']],
+          paint: {
+            'circle-color': [
+              'case',
+              ['get', 'is_featured'],
+              'rgba(245, 158, 11, 0.35)',
+              'rgba(139, 92, 246, 0.35)',
+            ],
+            'circle-radius': [
+              'case',
+              ['get', 'is_featured'],
+              13,
+              9,
+            ],
+            'circle-opacity': 0.8,
+          },
+        });
+
+        // 5. Unclustered Core Dot Layer
+        map.addLayer({
+          id: 'unclustered-point',
+          type: 'circle',
+          source: 'events-source',
+          filter: ['!', ['has', 'point_count']],
+          paint: {
+            'circle-color': [
+              'case',
+              ['get', 'is_featured'],
+              '#F59E0B',
+              '#22D3EE',
+            ],
+            'circle-radius': [
+              'case',
+              ['get', 'is_featured'],
+              6,
+              5,
+            ],
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#FFFFFF',
+          },
+        });
+
+        // Click on cluster -> zoom in
+        map.on('click', 'clusters', async (e) => {
+          const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+          const clusterId = features[0]?.properties?.cluster_id;
+          if (clusterId == null) return;
+          const source = map.getSource('events-source') as MapLibreTypes.GeoJSONSource;
+          try {
+            const zoom = await source.getClusterExpansionZoom(clusterId);
+            const geom = features[0].geometry as GeoJSON.Point;
+            map.easeTo({
+              center: geom.coordinates as [number, number],
+              zoom,
+              duration: 800,
+            });
+          } catch {}
+        });
+
+        // Click on individual event point
+        map.on('click', 'unclustered-point', (e) => {
+          const feature = e.features?.[0];
+          const id = feature?.properties?.id;
+          if (!id) return;
+          const event = eventsMapRef.current.get(id);
+          if (event) {
+            isRotatingRef.current = false;
+            onSelectEvent(event);
+          }
+        });
+
+        // Hover effect & popup
+        map.on('mousemove', 'unclustered-point', (e) => {
+          map.getCanvas().style.cursor = 'pointer';
+          const feature = e.features?.[0];
+          if (!feature) return;
+          const geom = feature.geometry as GeoJSON.Point;
+          const p = feature.properties;
+          if (popupRef.current && geom.coordinates) {
+            popupRef.current
+              .setLngLat(geom.coordinates as [number, number])
+              .setHTML(`
+                <div style="font-family: inherit; font-size: 11px; padding: 2px 4px; color: #fff; background: rgba(15,15,26,0.95); border-radius: 6px;">
+                  <strong style="color: #22D3EE;">${p.artist_name || ''}</strong><br/>
+                  <span style="color: #94A3B8;">${p.venue_name || ''} • ${p.city || ''}</span>
+                </div>
+              `)
+              .addTo(map);
+          }
+        });
+
+        map.on('mouseleave', 'unclustered-point', () => {
+          map.getCanvas().style.cursor = '';
+          popupRef.current?.remove();
+        });
+
+        map.on('mouseenter', 'clusters', () => {
+          map.getCanvas().style.cursor = 'pointer';
+        });
+        map.on('mouseleave', 'clusters', () => {
+          map.getCanvas().style.cursor = '';
+        });
+
+        setInitialLoaded(true);
+
+        // Fetch visitor approximate location
+        fetch('/api/geo')
+          .then((res) => res.json())
+          .then((geo) => {
+            if (geo && typeof geo.lng === 'number' && typeof geo.lat === 'number') {
+              map.flyTo({
+                center: [geo.lng, geo.lat],
+                zoom: geo.isDefault ? 2.5 : 3.5,
+                duration: 2500,
+                essential: true,
+              });
+            }
+          })
+          .catch(() => {});
+      });
+
+      // Pause rotation on user interaction
+      const pauseRotation = () => {
+        isRotatingRef.current = false;
+        if (rotateTimerRef.current) clearTimeout(rotateTimerRef.current);
+        rotateTimerRef.current = setTimeout(() => {
+          isRotatingRef.current = true;
+        }, 8000);
+      };
+
+      map.on('mousedown', pauseRotation);
+      map.on('touchstart', pauseRotation);
+      map.on('wheel', pauseRotation);
+    }
+
+    initMap();
 
     return () => {
+      isMounted = false;
       if (rotateTimerRef.current) clearTimeout(rotateTimerRef.current);
-      markersRef.current.forEach((m) => m.remove());
-      markersRef.current = [];
-      map.remove();
+      popupRef.current?.remove();
+      mapRef.current?.remove();
       mapRef.current = null;
     };
   }, []);
 
-  // Idle smooth globe rotation loop
+  // Update GeoJSON source data without recreating any DOM elements
   useEffect(() => {
-    if (!isRotating || !mapRef.current || !initialLoaded) return;
+    const map = mapRef.current;
+    if (!map || !initialLoaded) return;
+    const source = map.getSource('events-source') as MapLibreTypes.GeoJSONSource | undefined;
+    if (source && typeof source.setData === 'function') {
+      source.setData(toGeoJSON(events));
+    }
+  }, [events, initialLoaded, toGeoJSON]);
+
+  // Pause rotation and rendering when off-screen or tab hidden (IntersectionObserver + visibilitychange)
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        isIntersectingRef.current = entries[0]?.isIntersecting ?? false;
+      },
+      { threshold: 0.05 }
+    );
+
+    observer.observe(containerRef.current);
+
+    const handleVisibility = () => {
+      // Rotation logic checks document.hidden
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
+
+  // Smooth rotation tick, strictly paused when offscreen or hidden
+  useEffect(() => {
+    if (!initialLoaded) return;
 
     const interval = setInterval(() => {
-      if (!mapRef.current || !isRotating) return;
-      const center = mapRef.current.getCenter();
+      const map = mapRef.current;
+      if (!map || !isRotatingRef.current || !isIntersectingRef.current || document.hidden) {
+        return;
+      }
+      const center = map.getCenter();
       center.lng -= 0.15;
-      mapRef.current.easeTo({
+      map.easeTo({
         center,
         duration: 900,
         easing: (n: number) => n,
@@ -120,12 +392,12 @@ export function GlobeHero({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isRotating, initialLoaded]);
+  }, [initialLoaded]);
 
   // Handle fly to user coords if provided via "Near Me"
   useEffect(() => {
     if (userCoords && mapRef.current) {
-      setIsRotating(false);
+      isRotatingRef.current = false;
       mapRef.current.flyTo({
         center: [userCoords.lng, userCoords.lat],
         zoom: 6,
@@ -134,84 +406,6 @@ export function GlobeHero({
       });
     }
   }, [userCoords]);
-
-  // Update event pins / markers
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !initialLoaded) return;
-
-    // Clear previous markers
-    markersRef.current.forEach((m) => m.remove());
-    markersRef.current = [];
-
-    events.forEach((event) => {
-      const el = document.createElement('div');
-      el.className = 'relative flex items-center justify-center cursor-pointer group';
-
-      if (event.approximate_location) {
-        // Approximate location circle area
-        el.className += ' map-approx-area';
-        el.style.width = '44px';
-        el.style.height = '44px';
-
-        const centerDot = document.createElement('div');
-        centerDot.className =
-          'w-3 h-3 rounded-full bg-violet-400 shadow-md shadow-violet-500/50 border border-white/60';
-        el.appendChild(centerDot);
-
-        const tooltip = document.createElement('div');
-        tooltip.className =
-          'hidden group-hover:block absolute bottom-full mb-2 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-black/90 text-violet-300 border border-violet-500/40 whitespace-nowrap shadow-xl z-30 pointer-events-none';
-        tooltip.textContent = `${event.title} (Area)`;
-        el.appendChild(tooltip);
-      } else {
-        // Exact pin marker with pulse animation
-        el.style.width = '28px';
-        el.style.height = '28px';
-
-        // Pulse ring
-        const pulse = document.createElement('div');
-        pulse.className = event.is_featured ? 'map-pin-pulse-featured' : 'map-pin-pulse';
-        el.appendChild(pulse);
-
-        // Core Pin Dot
-        const dot = document.createElement('div');
-        dot.className = `relative w-5 h-5 rounded-full flex items-center justify-center shadow-lg transition-transform group-hover:scale-125 ${
-          event.is_featured
-            ? 'bg-gradient-to-tr from-amber-400 to-violet-500 border-2 border-white'
-            : 'bg-gradient-to-tr from-violet-600 to-cyan-400 border-2 border-white/90'
-        }`;
-
-        // Center dot
-        const inner = document.createElement('div');
-        inner.className = 'w-1.5 h-1.5 rounded-full bg-white';
-        dot.appendChild(inner);
-        el.appendChild(dot);
-
-        // Hover tooltip preview
-        const tooltip = document.createElement('div');
-        tooltip.className =
-          'hidden group-hover:block absolute bottom-full mb-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#0E0E1A]/95 text-white border border-white/20 whitespace-nowrap shadow-2xl z-30 pointer-events-none backdrop-blur-md';
-        tooltip.innerHTML = `
-          <div class="font-bold text-cyan-300">${event.artist_name}</div>
-          <div class="text-[11px] text-slate-300">${event.venue_name} • ${event.city}</div>
-        `;
-        el.appendChild(tooltip);
-      }
-
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        setIsRotating(false);
-        onSelectEvent(event);
-      });
-
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([event.lng, event.lat])
-        .addTo(map);
-
-      markersRef.current.push(marker);
-    });
-  }, [events, initialLoaded, onSelectEvent]);
 
   // Toggle fullscreen mode
   const toggleFullscreen = () => {
@@ -280,7 +474,7 @@ export function GlobeHero({
           <RotateCcw className="w-4 h-4 text-violet-400" />
         </button>
 
-        {/* Explore Globe Fullscreen Button (Essential for Mobile 1-finger gesture requirement) */}
+        {/* Explore Globe Fullscreen Button */}
         <button
           onClick={toggleFullscreen}
           className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-cyan-600 hover:opacity-95 text-white text-xs font-bold shadow-lg shadow-violet-600/30 transition-all active:scale-95"
@@ -303,7 +497,7 @@ export function GlobeHero({
       {/* Legend at bottom left */}
       <div className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6 z-10 hidden sm:flex items-center gap-3 px-3 py-2 rounded-xl bg-[#0F0F1A]/85 backdrop-blur-md border border-white/10 text-[11px] text-slate-300">
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-gradient-to-r from-violet-500 to-cyan-400 inline-block shadow-sm" />
+          <span className="w-3 h-3 rounded-full bg-cyan-400 inline-block shadow-sm" />
           <span>Live gig</span>
         </div>
         <div className="flex items-center gap-1.5">
@@ -317,4 +511,4 @@ export function GlobeHero({
       </div>
     </div>
   );
-}
+});

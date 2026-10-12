@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { EventItem } from '@/lib/data/demoEvents';
 import { getFutureEvents, getPlatformStats, calculateDistanceKm } from '@/lib/services/eventsService';
@@ -33,6 +33,7 @@ export default function HomePage() {
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const [savedEventIds, setSavedEventIds] = useState<string[]>([]);
   const [quickAuthOpen, setQuickAuthOpen] = useState(false);
+  const [globeReady, setGlobeReady] = useState(false);
 
   // User precise geolocation (only asked when user taps "Near me")
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -82,8 +83,43 @@ export default function HomePage() {
     }
   }, []);
 
+  // Defer heavy MapLibre WebGL globe execution until browser is idle or user interacts
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let idleTimer: NodeJS.Timeout;
+
+    const triggerGlobe = () => {
+      setGlobeReady(true);
+      removeListeners();
+    };
+
+    const removeListeners = () => {
+      window.removeEventListener('scroll', triggerGlobe);
+      window.removeEventListener('touchstart', triggerGlobe);
+      window.removeEventListener('mousemove', triggerGlobe);
+      window.removeEventListener('click', triggerGlobe);
+      if (idleTimer) clearTimeout(idleTimer);
+    };
+
+    window.addEventListener('scroll', triggerGlobe, { once: true, passive: true });
+    window.addEventListener('touchstart', triggerGlobe, { once: true, passive: true });
+    window.addEventListener('mousemove', triggerGlobe, { once: true, passive: true });
+    window.addEventListener('click', triggerGlobe, { once: true, passive: true });
+
+    if ('requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(() => {
+        idleTimer = setTimeout(triggerGlobe, 3000);
+      }, { timeout: 6000 });
+    } else {
+      idleTimer = setTimeout(triggerGlobe, 3500);
+    }
+
+    return removeListeners;
+  }, []);
+
   // Near me button click handler: ask browser for precise geolocation
-  const handleNearMeClick = () => {
+  const handleNearMeClick = useCallback(() => {
     if (!navigator.geolocation) {
       alert('Geolocation is not supported by your browser.');
       return;
@@ -113,16 +149,16 @@ export default function HomePage() {
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
-  };
+  }, []);
 
   // Distance calculator helper
-  const getDistance = (event: EventItem): number | null => {
+  const getDistance = useCallback((event: EventItem): number | null => {
     if (!userCoords) return null;
     return calculateDistanceKm(userCoords.lat, userCoords.lng, event.lat, event.lng);
-  };
+  }, [userCoords]);
 
   // Toggle save event
-  const handleSaveEvent = (event: EventItem) => {
+  const handleSaveEvent = useCallback((event: EventItem) => {
     setSavedEventIds((prev) => {
       const exists = prev.includes(event.id);
       const updated = exists ? prev.filter((id) => id !== event.id) : [...prev, event.id];
@@ -133,7 +169,15 @@ export default function HomePage() {
       }
       return updated;
     });
-  };
+  }, []);
+
+  const handleSelectEvent = useCallback((event: EventItem) => {
+    setSelectedEvent(event);
+  }, []);
+
+  const handleClosePopup = useCallback(() => {
+    setSelectedEvent(null);
+  }, []);
 
   // Filter & Sort logic
   const filteredEvents = useMemo(() => {
@@ -263,13 +307,25 @@ export default function HomePage() {
 
       {/* 1. HERO GLOBE 3D */}
       <section className="w-full">
-        <GlobeHero
-          events={filteredEvents}
-          onSelectEvent={setSelectedEvent}
-          selectedEventId={selectedEvent?.id}
-          onNearMeClick={handleNearMeClick}
-          userCoords={userCoords}
-        />
+        {globeReady ? (
+          <GlobeHero
+            events={filteredEvents}
+            onSelectEvent={handleSelectEvent}
+            selectedEventId={selectedEvent?.id}
+            onNearMeClick={handleNearMeClick}
+            userCoords={userCoords}
+          />
+        ) : (
+          <div
+            onClick={() => setGlobeReady(true)}
+            className="w-full h-[500px] sm:h-[620px] rounded-3xl glass-panel border border-white/10 flex flex-col items-center justify-center text-slate-400 gap-3 cursor-pointer group hover:border-cyan-500/30 transition-all"
+            title="Tocca per caricare il globo 3D"
+          >
+            <div className="w-10 h-10 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm font-medium text-slate-300">Initializing 3D Live Globe...</span>
+            <span className="text-xs text-slate-500 group-hover:text-cyan-400 transition-colors">Tocca per attivare subito</span>
+          </div>
+        )}
       </section>
 
       {/* 2. SEARCH AND FILTERS (directly under globe) */}
@@ -290,7 +346,7 @@ export default function HomePage() {
           events={filteredEvents}
           allUpcomingEvents={allEvents}
           getDistance={getDistance}
-          onSelectEvent={setSelectedEvent}
+          onSelectEvent={handleSelectEvent}
           onSaveEvent={handleSaveEvent}
           savedEventIds={savedEventIds}
           userCoords={userCoords}
@@ -303,7 +359,7 @@ export default function HomePage() {
       {/* Modal / Bottom Sheet for pin or card click */}
       <EventPopupSheet
         event={selectedEvent}
-        onClose={() => setSelectedEvent(null)}
+        onClose={handleClosePopup}
         onSave={handleSaveEvent}
         isSaved={selectedEvent ? savedEventIds.includes(selectedEvent.id) : false}
       />

@@ -3,6 +3,7 @@ import { dict } from '@/lib/dictionary';
 import { createClient } from '@/lib/supabase/server';
 import { UserNav } from '@/components/UserNav';
 import { RadioBarPlaceholder } from '@/components/RadioBarPlaceholder';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 export async function Navbar() {
   const supabase = await createClient();
@@ -50,7 +51,8 @@ export async function Navbar() {
         </div>
 
         {/* Right side Auth / User action */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <LanguageSwitcher />
           <UserNav user={user} />
         </div>
       </div>
