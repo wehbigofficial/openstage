@@ -23,12 +23,20 @@ import {
   Sparkles,
 } from 'lucide-react';
 
+import { useSearchParams } from 'next/navigation';
 import FanDashboard from '@/components/FanDashboard';
+import { ArtistStatsTab } from '@/components/dashboard/ArtistStatsTab';
+import { ArtistRadioTab } from '@/components/dashboard/ArtistRadioTab';
+import { ArtistInvitesTab } from '@/components/dashboard/ArtistInvitesTab';
 
 export default function MyEventsDashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tab = searchParams.get('tab');
+
   const [user, setUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<'artist' | 'venue' | 'fan'>('artist');
+  const [isPro, setIsPro] = useState(false);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedShareEvent, setSelectedShareEvent] = useState<EventItem | null>(null);
@@ -49,6 +57,16 @@ export default function MyEventsDashboard() {
 
         const role = profile?.role || user.user_metadata?.role || 'artist';
         setUserRole(role);
+
+        const { data: artist } = await supabase
+          .from('artists')
+          .select('is_pro')
+          .eq('profile_id', user.id)
+          .maybeSingle();
+
+        if (artist?.is_pro) {
+          setIsPro(true);
+        }
       }
 
       // Load events owned by user or demo events fallback
@@ -67,6 +85,31 @@ export default function MyEventsDashboard() {
 
   if (!loading && user && userRole === 'fan') {
     return <FanDashboard initialUser={user} />;
+  }
+
+  // Handle Phase 6 Creator Hub Tabs
+  if (!loading) {
+    if (tab === 'stats') {
+      return (
+        <div className="p-6 sm:p-10 max-w-7xl mx-auto">
+          <ArtistStatsTab artistId={user?.id || 'demo'} />
+        </div>
+      );
+    }
+    if (tab === 'radio') {
+      return (
+        <div className="p-6 sm:p-10 max-w-7xl mx-auto">
+          <ArtistRadioTab artistId={user?.id || 'demo'} isPro={isPro} />
+        </div>
+      );
+    }
+    if (tab === 'invites') {
+      return (
+        <div className="p-6 sm:p-10 max-w-7xl mx-auto">
+          <ArtistInvitesTab artistId={user?.id || 'demo'} />
+        </div>
+      );
+    }
   }
 
   // Duplicate event to a new date

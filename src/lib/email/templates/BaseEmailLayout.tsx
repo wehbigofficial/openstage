@@ -13,6 +13,9 @@ import {
 
 interface BaseEmailLayoutProps {
   previewText: string;
+  preheader?: string;
+  title?: string;
+  subtitle?: string;
   children: React.ReactNode;
   showUnsubscribe?: boolean;
   unsubscribeUrl?: string;
@@ -22,6 +25,9 @@ interface BaseEmailLayoutProps {
 
 export function BaseEmailLayout({
   previewText,
+  preheader,
+  title,
+  subtitle,
   children,
   showUnsubscribe = true,
   unsubscribeUrl = 'https://openstage.it/unsubscribe',
@@ -33,7 +39,7 @@ export function BaseEmailLayout({
   return (
     <Html lang={locale}>
       <Head />
-      <Preview>{previewText}</Preview>
+      <Preview>{preheader || previewText}</Preview>
       <Body style={mainStyle}>
         <Container style={containerStyle}>
           {/* Header with OpenStage Brand */}
@@ -53,7 +59,15 @@ export function BaseEmailLayout({
           </Section>
 
           {/* Card Content */}
-          <Section style={cardSection}>{children}</Section>
+          <Section style={cardSection}>
+            {title && (
+              <Text style={titleStyle}>{title}</Text>
+            )}
+            {subtitle && (
+              <Text style={subtitleStyle}>{subtitle}</Text>
+            )}
+            {children}
+          </Section>
 
           {/* Footer */}
           <Section style={footerSection}>
@@ -132,6 +146,21 @@ const cardSection: React.CSSProperties = {
   borderRadius: '16px',
   padding: '32px',
   boxShadow: '0 10px 25px rgba(0, 0, 0, 0.5)',
+};
+
+const titleStyle: React.CSSProperties = {
+  fontSize: '22px',
+  fontWeight: '800',
+  color: '#FFFFFF',
+  marginBottom: '8px',
+  lineHeight: '1.3',
+};
+
+const subtitleStyle: React.CSSProperties = {
+  fontSize: '15px',
+  color: '#94A3B8',
+  marginBottom: '24px',
+  lineHeight: '1.5',
 };
 
 export const mainButtonStyle: React.CSSProperties = {

@@ -14,6 +14,8 @@ import {
   Database,
   ShieldCheck,
   ChevronRight,
+  Music,
+  UserCheck,
 } from 'lucide-react';
 
 export type AdminSectionTab =
@@ -25,7 +27,9 @@ export type AdminSectionTab =
   | 'notifications'
   | 'settings'
   | 'on-behalf'
-  | 'export';
+  | 'export'
+  | 'radio'
+  | 'referrals';
 
 interface AdminSidebarProps {
   currentTab: AdminSectionTab;
@@ -95,6 +99,16 @@ export function AdminSidebar({
       icon: <Bell className="w-4 h-4" />,
       badge: unreadNotifsCount,
       badgeColor: 'bg-violet-500',
+    },
+    {
+      id: 'radio',
+      label: 'Radio Tracks',
+      icon: <Music className="w-4 h-4" />,
+    },
+    {
+      id: 'referrals',
+      label: t.admin.referrals,
+      icon: <UserCheck className="w-4 h-4" />,
     },
     {
       id: 'settings',

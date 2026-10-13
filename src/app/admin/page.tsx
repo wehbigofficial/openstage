@@ -15,6 +15,8 @@ import { AdminNotificationsSection } from '@/components/admin/AdminNotifications
 import { AdminSettingsSection } from '@/components/admin/AdminSettingsSection';
 import { AdminOnBehalfSection } from '@/components/admin/AdminOnBehalfSection';
 import { AdminExportSection } from '@/components/admin/AdminExportSection';
+import { AdminRadioSection } from '@/components/admin/AdminRadioSection';
+import { AdminReferralsSection } from '@/components/admin/AdminReferralsSection';
 import { Loader2 } from 'lucide-react';
 
 function AdminDashboardContent() {
@@ -169,6 +171,8 @@ function AdminDashboardContent() {
             {currentTab === 'settings' && <AdminSettingsSection />}
             {currentTab === 'on-behalf' && <AdminOnBehalfSection />}
             {currentTab === 'export' && <AdminExportSection />}
+            {currentTab === 'radio' && <AdminRadioSection />}
+            {currentTab === 'referrals' && <AdminReferralsSection />}
           </main>
         </div>
       </div>

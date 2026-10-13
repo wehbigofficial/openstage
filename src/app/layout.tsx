@@ -3,7 +3,7 @@ import { Inter, Space_Grotesk } from 'next/font/google';
 import './globals.css';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
-import { RadioBarPlaceholder } from '@/components/RadioBarPlaceholder';
+import { RadioBar } from '@/components/RadioBar';
 import { Suspense } from 'react';
 
 const inter = Inter({
@@ -46,7 +46,7 @@ export default function RootLayout({
           {/* Main content with padding at bottom to leave clear space for the fixed radio bar */}
           <main className="flex-1 pb-16">{children}</main>
           <Footer />
-          <RadioBarPlaceholder />
+          <RadioBar />
         </LanguageProvider>
       </body>
     </html>

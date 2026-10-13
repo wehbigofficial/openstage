@@ -3,6 +3,7 @@
 import React, { useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { toPng } from 'html-to-image';
+import Link from 'next/link';
 import {
   Share2,
   Copy,
@@ -13,6 +14,7 @@ import {
   Sparkles,
   X,
   ExternalLink,
+  Lock,
 } from 'lucide-react';
 
 interface ShareModalProps {
@@ -44,8 +46,31 @@ export default function ShareModal({
   const [selectedFormat, setSelectedFormat] = useState<CardFormat>('portrait');
   const [downloading, setDownloading] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+  const [isPro, setIsPro] = useState(false);
+  const [hideWatermark, setHideWatermark] = useState(false);
 
   const cardRef = useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    async function checkProStatus() {
+      try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: artist } = await supabase
+            .from('artists')
+            .select('is_pro')
+            .eq('profile_id', user.id)
+            .maybeSingle();
+          if (artist?.is_pro) {
+            setIsPro(true);
+          }
+        }
+      } catch {}
+    }
+    checkProStatus();
+  }, []);
 
   React.useEffect(() => {
     if (isOpen && eventUrl) {
@@ -260,6 +285,31 @@ export default function ShareModal({
                 </button>
               ))}
             </div>
+
+            {/* Watermark toggle */}
+            <div className="flex items-center gap-2">
+              {isPro ? (
+                <button
+                  type="button"
+                  onClick={() => setHideWatermark(!hideWatermark)}
+                  className={`px-3 py-1 rounded-xl text-xs font-semibold border transition-all ${
+                    hideWatermark
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                      : 'bg-white/5 text-slate-300 border-white/10'
+                  }`}
+                >
+                  {hideWatermark ? 'Marchio OpenStage: Nascosto (PRO)' : 'Mostra Marchio OpenStage'}
+                </button>
+              ) : (
+                <Link
+                  href="/go-pro"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold transition-all"
+                >
+                  <Lock className="w-3 h-3" />
+                  <span>Rimuovi logo OpenStage (PRO)</span>
+                </Link>
+              )}
+            </div>
           </div>
 
           {/* Visual Canvas to be converted to image */}
@@ -268,18 +318,26 @@ export default function ShareModal({
               ref={cardRef}
               className={`w-full ${formatDimensions[selectedFormat]} relative rounded-2xl overflow-hidden bg-gradient-to-b from-[#16122b] via-[#0b0a14] to-black border border-white/20 p-5 flex flex-col justify-between shadow-2xl select-none`}
             >
-              {/* Top Bar */}
-              <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-pink-500" />
-                  <span className="text-[11px] font-black tracking-widest uppercase text-white">
-                    OPENSTAGE
+              {/* Top Bar / Watermark */}
+              {!hideWatermark ? (
+                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-pink-500" />
+                    <span className="text-[11px] font-black tracking-widest uppercase text-white">
+                      OPENSTAGE
+                    </span>
+                  </div>
+                  <span className="text-[9px] font-semibold uppercase px-2 py-0.5 rounded bg-white/10 text-slate-300">
+                    Live Show
                   </span>
                 </div>
-                <span className="text-[9px] font-semibold uppercase px-2 py-0.5 rounded bg-white/10 text-slate-300">
-                  Live Show
-                </span>
-              </div>
+              ) : (
+                <div className="flex items-center justify-end pb-2">
+                  <span className="text-[9px] font-semibold uppercase px-2 py-0.5 rounded bg-white/10 text-slate-300">
+                    Live Show
+                  </span>
+                </div>
+              )}
 
               {/* Event Poster preview / Image */}
               {event.image_url ? (
@@ -346,6 +404,32 @@ export default function ShareModal({
             </button>
           </div>
         </div>
+
+        {/* Soft Upgrade Card (never blocking) */}
+        {!isPro && (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-transparent border border-amber-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div className="space-y-0.5 text-center sm:text-left">
+                <p className="text-xs font-bold text-white flex items-center gap-2 justify-center sm:justify-start">
+                  <span>Passa ad Artist Pro</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300">€3 una tantum</span>
+                </p>
+                <p className="text-[11px] text-slate-300">
+                  Ottieni Bio Page personalizzata, rotazione nella Radio 24/7, statistiche complete e rimuovi il marchio OpenStage dalle locandine.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/go-pro"
+              className="shrink-0 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-pink-500 text-black font-extrabold text-xs shadow-md hover:opacity-95 transition-all"
+            >
+              Scopri Artist Pro
+            </Link>
+          </div>
+        )}
 
         {/* Viral Growth Banner */}
         <div className="p-4 rounded-2xl bg-gradient-to-r from-violet-950/60 to-cyan-950/60 border border-violet-500/20 flex flex-col sm:flex-row items-center justify-between gap-4">

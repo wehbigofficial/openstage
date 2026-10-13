@@ -16,6 +16,9 @@ import {
   Compass,
   Bookmark,
   Heart,
+  Radio,
+  BarChart3,
+  Gift,
 } from 'lucide-react';
 
 interface DashboardShellProps {
@@ -29,6 +32,7 @@ function DashboardShellInner({ children }: DashboardShellProps) {
   const tab = searchParams.get('tab');
 
   const [role, setRole] = useState<'artist' | 'venue' | 'fan'>('fan');
+  const [isPro, setIsPro] = useState(false);
 
   useEffect(() => {
     async function checkRole() {
@@ -45,6 +49,16 @@ function DashboardShellInner({ children }: DashboardShellProps) {
           setRole(profile.role);
         } else if (user.user_metadata?.role) {
           setRole(user.user_metadata.role);
+        }
+
+        const { data: artist } = await supabase
+          .from('artists')
+          .select('is_pro')
+          .eq('profile_id', user.id)
+          .maybeSingle();
+
+        if (artist?.is_pro) {
+          setIsPro(true);
         }
       }
     }
@@ -93,7 +107,25 @@ function DashboardShellInner({ children }: DashboardShellProps) {
       label: 'I miei eventi',
       href: '/dashboard',
       icon: Calendar,
-      active: pathname === '/dashboard' || pathname === '/dashboard/events',
+      active: pathname === '/dashboard' && (!tab || tab === 'events'),
+    },
+    {
+      label: 'Statistiche',
+      href: '/dashboard?tab=stats',
+      icon: BarChart3,
+      active: pathname === '/dashboard' && tab === 'stats',
+    },
+    {
+      label: 'Radio Indie 24/7',
+      href: '/dashboard?tab=radio',
+      icon: Radio,
+      active: pathname === '/dashboard' && tab === 'radio',
+    },
+    {
+      label: 'Inviti & Pro gratis',
+      href: '/dashboard?tab=invites',
+      icon: Gift,
+      active: pathname === '/dashboard' && tab === 'invites',
     },
     {
       label: 'Crea evento',
@@ -102,10 +134,17 @@ function DashboardShellInner({ children }: DashboardShellProps) {
       active: pathname === '/dashboard/events/new',
     },
     {
-      label: 'Profilo',
+      label: 'Profilo & Bio',
       href: '/dashboard/profile',
       icon: User,
       active: pathname === '/dashboard/profile',
+    },
+    {
+      label: isPro ? 'Artist Pro Attivo' : 'Passa a Pro',
+      href: '/go-pro',
+      icon: Sparkles,
+      active: pathname === '/go-pro',
+      isProHighlight: !isPro,
     },
     {
       label: 'Notifiche',
@@ -138,59 +177,76 @@ function DashboardShellInner({ children }: DashboardShellProps) {
           </div>
 
           <nav className="space-y-1">
-            {navItems.map((item) => {
+            {navItems.map((item: any) => {
               const Icon = item.icon;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                    item.active
+                    item.isProHighlight
+                      ? 'bg-gradient-to-r from-amber-500/20 via-pink-500/20 to-violet-500/20 border border-amber-500/40 text-amber-300 hover:text-white shadow-sm'
+                      : item.active
                       ? 'bg-gradient-to-r from-violet-600/30 to-pink-600/30 border border-violet-500/40 text-white shadow-sm'
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${item.active ? 'text-pink-400' : 'text-slate-400'}`} />
+                  <Icon className={`w-4 h-4 ${item.isProHighlight ? 'text-amber-400' : item.active ? 'text-pink-400' : 'text-slate-400'}`} />
                   <span>{item.label}</span>
                 </Link>
               );
             })}
           </nav>
 
-          {/* Pro Items (Locked Cards) - ONLY for artists and venues, NEVER for fans */}
-          {!isFan && (
+          {/* Pro Items (Locked Cards) - ONLY for artists and venues when not yet Pro */}
+          {!isFan && !isPro && (
             <div className="pt-6 border-t border-white/10 space-y-3">
-              <div className="flex items-center justify-between px-3 text-xs font-bold text-amber-400 uppercase tracking-wider">
+              <Link
+                href="/go-pro"
+                className="flex items-center justify-between px-3 text-xs font-bold text-amber-400 uppercase tracking-wider hover:underline"
+              >
                 <span className="flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>Funzioni PRO</span>
                 </span>
                 <Lock className="w-3 h-3 text-amber-400/70" />
-              </div>
+              </Link>
 
-              <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-purple-500/5 to-transparent border border-amber-500/20 space-y-2">
+              <Link
+                href="/go-pro"
+                className="block p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-purple-500/5 to-transparent border border-amber-500/20 space-y-1 hover:border-amber-500/40 transition-all"
+              >
                 <div className="flex items-center justify-between text-xs font-bold text-white">
-                  <span>Biglietteria Diretta 0%</span>
-                  <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono">
-                    PRO
-                  </span>
+                  <span>Rotazione Radio 24/7</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono">
+                      PRO
+                    </span>
+                    <Lock className="w-3 h-3 text-amber-400" />
+                  </div>
                 </div>
                 <p className="text-[11px] text-slate-400 leading-snug">
-                  Vendi biglietti direttamente senza commissioni tramite Stripe Connect.
+                  Trasmetti fino a 3 brani MP3 in rotazione continua a tutti i visitatori.
                 </p>
-              </div>
+              </Link>
 
-              <div className="p-3.5 rounded-2xl bg-gradient-to-br from-pink-500/10 via-purple-500/5 to-transparent border border-pink-500/20 space-y-2">
+              <Link
+                href="/go-pro"
+                className="block p-3.5 rounded-2xl bg-gradient-to-br from-pink-500/10 via-purple-500/5 to-transparent border border-pink-500/20 space-y-1 hover:border-pink-500/40 transition-all"
+              >
                 <div className="flex items-center justify-between text-xs font-bold text-white">
-                  <span>Statistiche Fan & CRM</span>
-                  <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-300 font-mono">
-                    PRO
-                  </span>
+                  <span>Statistiche & Top Città</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-300 font-mono">
+                      PRO
+                    </span>
+                    <Lock className="w-3 h-3 text-pink-400" />
+                  </div>
                 </div>
                 <p className="text-[11px] text-slate-400 leading-snug">
-                  Dati demografici, origini delle visualizzazioni e lista email fan.
+                  Andamento nel tempo, ascolti radio, visite profilo e provenienza fan.
                 </p>
-              </div>
+              </Link>
             </div>
           )}
         </div>

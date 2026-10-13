@@ -12,6 +12,10 @@ import { ContactTicketConfirmationEmail } from './templates/contact-ticket-confi
 import { ContactReplyEmail } from './templates/contact-reply';
 import { ClaimProfileInviteEmail } from './templates/claim-profile-invite';
 import { AdminAlertEmail } from './templates/admin-alert';
+import { ArtistProReceipt } from './templates/artist-pro-receipt';
+import { RadioTrackApproved } from './templates/radio-track-approved';
+import { RadioTrackRejected } from './templates/radio-track-rejected';
+import { ReferralRewardUnlocked } from './templates/referral-reward-unlocked';
 
 export type EmailTemplateName =
   | 'welcome'
@@ -25,7 +29,11 @@ export type EmailTemplateName =
   | 'contact_ticket_confirmation'
   | 'contact_reply'
   | 'claim_profile_invite'
-  | 'admin_alert';
+  | 'admin_alert'
+  | 'artist_pro_receipt'
+  | 'radio_track_approved'
+  | 'radio_track_rejected'
+  | 'referral_reward_unlocked';
 
 export async function renderEmailTemplate(
   template: EmailTemplateName | string,
@@ -70,6 +78,18 @@ export async function renderEmailTemplate(
       break;
     case 'admin_alert':
       element = <AdminAlertEmail {...data} locale={locale} />;
+      break;
+    case 'artist_pro_receipt':
+      element = <ArtistProReceipt {...data} locale={locale} />;
+      break;
+    case 'radio_track_approved':
+      element = <RadioTrackApproved {...data} locale={locale} />;
+      break;
+    case 'radio_track_rejected':
+      element = <RadioTrackRejected {...data} locale={locale} />;
+      break;
+    case 'referral_reward_unlocked':
+      element = <ReferralRewardUnlocked {...data} locale={locale} />;
       break;
     default:
       throw new Error(`Unknown email template: ${template}`);
