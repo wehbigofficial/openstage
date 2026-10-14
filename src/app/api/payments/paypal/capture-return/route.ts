@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { capturePayPalOrder } from '@/lib/services/paypalService';
 import { createClient } from '@/lib/supabase/server';
 
-export const dynamic = 'force-dynamic';
-
 export async function GET(req: NextRequest) {
   try {
     const searchParams = req.nextUrl.searchParams;
