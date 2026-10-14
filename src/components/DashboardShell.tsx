@@ -171,9 +171,16 @@ function DashboardShellInner({ children }: DashboardShellProps) {
             <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
               {isFan ? t.fan.dashboardTitle : 'Creator Hub'}
             </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-violet-500/20 text-violet-300 border border-violet-500/30">
-              {role}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                {role}
+              </span>
+              {isPro && !isFan && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-extrabold uppercase bg-gradient-to-r from-amber-500 to-orange-500 text-black border border-amber-500/50 shadow-sm shadow-amber-500/20">
+                  PRO
+                </span>
+              )}
+            </div>
           </div>
 
           <nav className="space-y-1">
@@ -267,22 +274,29 @@ function DashboardShellInner({ children }: DashboardShellProps) {
       </main>
 
       {/* Mobile Bottom Tab Bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0A0A14]/95 backdrop-blur-xl border-t border-white/10 px-3 py-2 flex items-center justify-around">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex flex-col items-center gap-1 p-2 rounded-xl text-[10px] font-semibold transition-all ${
-                item.active ? 'text-pink-400' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Icon className="w-5 h-5" />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0A0A14]/95 backdrop-blur-xl border-t border-white/10 px-3 py-2 flex items-center justify-between">
+        {isPro && !isFan && (
+          <span className="text-[10px] px-2 py-1 rounded-full font-extrabold uppercase bg-gradient-to-r from-amber-500 to-orange-500 text-black shadow-sm shadow-amber-500/30">
+            PRO
+          </span>
+        )}
+        <div className="flex items-center justify-around flex-1">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex flex-col items-center gap-1 p-2 rounded-xl text-[10px] font-semibold transition-all ${
+                  item.active ? 'text-pink-400' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
