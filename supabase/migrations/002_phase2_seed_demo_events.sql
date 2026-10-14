@@ -6,11 +6,6 @@ DO $$
 DECLARE
   demo_user_id UUID := '00000000-0000-0000-0000-000000000001';
 BEGIN
-  -- Insert demo profile if not exists
-  INSERT INTO public.profiles (id, role, display_name, city, country, lat, lng)
-  VALUES (demo_user_id, 'artist', 'OpenStage Global Curators', 'Rome', 'Italy', 41.9028, 12.4964)
-  ON CONFLICT (id) DO NOTHING;
-
   -- Delete existing demo events before reseeding
   DELETE FROM public.events WHERE is_demo = true;
 

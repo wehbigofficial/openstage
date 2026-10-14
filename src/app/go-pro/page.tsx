@@ -69,6 +69,32 @@ export default function GoProPage() {
       }
     }
     loadUserAndSettings();
+
+    // Handle PayPal return URL parameters
+    const searchParams = new URLSearchParams(window.location.search);
+    const paymentStatus = searchParams.get('payment');
+    
+    if (paymentStatus === 'success') {
+      setIsPro(true);
+      setPaymentNotice({
+        type: 'success',
+        message: t.pro.paymentSuccess,
+      });
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (paymentStatus === 'error') {
+      const reason = searchParams.get('reason');
+      setPaymentNotice({
+        type: 'error',
+        message: reason ? `${t.pro.paymentError}: ${reason}` : t.pro.paymentError,
+      });
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (paymentStatus === 'cancel') {
+      setPaymentNotice({
+        type: 'error',
+        message: isIt ? 'Pagamento annullato' : 'Payment cancelled',
+      });
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, []);
 
   const handlePayPalCheckout = async () => {
@@ -94,25 +120,24 @@ export default function GoProPage() {
 
       const orderData = await createRes.json();
 
-      // 2. Capture Order on server
-      const captureRes = await fetch('/api/payments/paypal/capture-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: orderData.id,
-          userId: user.id,
-        }),
-      });
-
-      if (!captureRes.ok) {
-        throw new Error('Impossibile completare il pagamento');
+      // If there's an approve URL, redirect the user to PayPal
+      if (orderData.approveUrl) {
+        // Store orderId and userId for the return flow
+        sessionStorage.setItem('paypal_order_id', orderData.id);
+        sessionStorage.setItem('paypal_user_id', user.id);
+        
+        // Redirect user to PayPal for approval
+        window.location.href = orderData.approveUrl;
+        return;
       }
 
-      setIsPro(true);
-      setPaymentNotice({
-        type: 'success',
-        message: t.pro.paymentSuccess,
-      });
+      // Fallback for mock/development without approveUrl
+      if (orderData.isMock && orderData.approveUrl) {
+        window.location.href = orderData.approveUrl;
+        return;
+      }
+
+      throw new Error('URL di approvazione PayPal non ricevuto');
     } catch (err: any) {
       console.error('PayPal checkout error:', err);
       setPaymentNotice({

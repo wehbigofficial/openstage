@@ -68,6 +68,10 @@ export async function createPayPalOrder(userId: string) {
   const price = await getArtistProPrice();
   const priceStr = price.toFixed(2);
 
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const returnUrl = `${baseUrl}/go-pro?payment=success`;
+  const cancelUrl = `${baseUrl}/go-pro?payment=cancel`;
+
   // If credentials are not configured in local environment, provide a dev/sandbox order mock
   if (!token) {
     const mockOrderId = `MOCK-ORDER-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
@@ -77,6 +81,7 @@ export async function createPayPalOrder(userId: string) {
       amount: priceStr,
       currency: 'EUR',
       isMock: true,
+      approveUrl: `${returnUrl}&mock=true&orderId=MOCK-${Date.now()}`,
     };
   }
 
@@ -99,6 +104,13 @@ export async function createPayPalOrder(userId: string) {
           custom_id: userId,
         },
       ],
+      application_context: {
+        return_url: returnUrl,
+        cancel_url: cancelUrl,
+        brand_name: 'OpenStage',
+        locale: 'it-IT',
+        user_action: 'PAY_NOW',
+      },
     }),
   });
 
@@ -108,12 +120,18 @@ export async function createPayPalOrder(userId: string) {
   }
 
   const orderData = await res.json();
+
+  // Extract the approval URL from the links
+  const approveLink = orderData.links?.find((link: any) => link.rel === 'approve');
+
   return {
     id: orderData.id,
     status: orderData.status,
     amount: priceStr,
     currency: 'EUR',
     isMock: false,
+    approveUrl: approveLink?.href || null,
+    rawOrder: orderData,
   };
 }
 
