@@ -11,8 +11,6 @@ interface VenuePageProps {
   }>;
 }
 
-export const instant = false;
-
 export default async function PublicVenuePage({ params }: VenuePageProps) {
   const { name } = await params;
   const decodedName = decodeURIComponent(name);

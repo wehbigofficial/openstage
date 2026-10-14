@@ -44,8 +44,6 @@ export async function generateMetadata({ params }: EventPageProps): Promise<Meta
   };
 }
 
-export const instant = false;
-
 export default async function EventPage({ params }: EventPageProps) {
   const { city, slug } = await params;
   const event = await findEventByIdOrSlug(slug);

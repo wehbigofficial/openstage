@@ -1,8 +1,6 @@
 import React, { Suspense } from 'react';
 import DashboardShell from '@/components/DashboardShell';
 
-export const instant = false;
-
 export default function DashboardLayout({
   children,
 }: {

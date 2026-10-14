@@ -4,8 +4,6 @@ import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Sparkles, Mic2, ArrowRight, ShieldCheck, Radio } from 'lucide-react';
 
-export const instant = false;
-
 interface InvitePageProps {
   params: Promise<{
     code: string;

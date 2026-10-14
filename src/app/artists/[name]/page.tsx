@@ -5,8 +5,6 @@ import { getDictionary } from '@/lib/dictionary';
 import { getEventUrl } from '@/lib/utils/slug';
 import ArtistBioClient from './ArtistBioClient';
 
-export const instant = false;
-
 interface ArtistBioPageProps {
   params: Promise<{
     name: string;

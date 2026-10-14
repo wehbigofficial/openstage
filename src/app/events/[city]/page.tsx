@@ -3,8 +3,6 @@ import { redirect, notFound } from 'next/navigation';
 import { findEventByIdOrSlug } from '@/lib/services/eventsService';
 import { getEventUrl } from '@/lib/utils/slug';
 
-export const instant = false;
-
 async function LegacyRedirect({ paramsPromise }: { paramsPromise: Promise<{ city: string }> }) {
   const { city } = await paramsPromise;
   const event = await findEventByIdOrSlug(city);
